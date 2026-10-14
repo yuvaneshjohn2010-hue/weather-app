@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Weather Command Center | Severe Alerts, Cyclone, Rain & Heat</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌪️</text></svg>">
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Dynamic Animated Canvas FX (Rain, Storms, Sun Rays, Heat Haze) -->
+  <canvas id="weatherCanvas"></canvas>
+
+  <div class="app-container">
+
+    <!-- Top Navigation & Controls Bar -->
+    <header class="top-nav">
+      <div class="brand-section">
+        <div class="brand-icon-box">🌪️</div>
+        <div class="brand-title-wrap">
+          <h1>AeroGuard Weather</h1>
+          <div class="brand-subtitle">
+            <span class="live-pulse-dot"></span> LIVE SATELLITE & RADAR TELEMETRY
+          </div>
+        </div>
+      </div>
+
+      <!-- Search & Autocomplete Form -->
+      <div class="search-wrapper" id="searchForm">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="citySearchInput" class="search-input" placeholder="Search any city, town, or region..." autocomplete="off">
+          <button class="btn-icon-action" id="btnGeoLocation" title="Use current GPS live location">
+            📍
+          </button>
+        </div>
+        <div id="searchResults" class="search-results-dropdown hidden"></div>
+      </div>
+
+      <!-- Action Controls -->
+      <div class="nav-controls">
+        <!-- °C / °F Switch -->
+        <div class="unit-switch-group">
+          <button id="btnUnitC" class="btn-unit active">°C</button>
+          <button id="btnUnitF" class="btn-unit">°F</button>
+        </div>
+
+        <!-- Audio Siren Toggle -->
+        <button id="btnAudioToggle" class="btn-pill" title="Toggle Emergency Siren Sound">
+          <span class="icon">🔊</span> Siren On
+        </button>
+
+        <!-- Push Notifications Toggle -->
+        <button id="btnNotification" class="btn-pill" title="Enable Desktop Push Alerts">
+          <span class="icon">🔔</span> Alerts
+        </button>
+
+        <!-- Safety Checklist -->
+        <button id="btnSafetyGuide" class="btn-pill" title="Severe Weather Safety Guidelines">
+          <span class="icon">🛡️</span> Safety Guide
+        </button>
+
+        <!-- Refresh Button -->
+        <button id="btnRefresh" class="btn-pill btn-refresh" title="Force Refresh Weather Data">
+          <span class="icon">🔄</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Alert Simulation / Demo Mode Bar (Test All Alerts Instantly) -->
+    <section class="demo-bar">
+      <div class="demo-title-group">
+        <span>⚡ Alert Simulation & Diagnostic Mode:</span>
+      </div>
+      <div class="demo-buttons-group">
+        <button class="btn-sim sim-live active" data-sim="live">
+          🟢 Live Sensors
+        </button>
+        <button class="btn-sim sim-cyclone" data-sim="cyclone" title="Test Super Cyclone & Destructive Gale Alert">
+          🌀 Simulate Cyclone Alert
+        </button>
+        <button class="btn-sim sim-rain" data-sim="rain" title="Test Torrential Cloudburst & Flash Flood Alert">
+          🌊 Simulate Heavy Rain Alert
+        </button>
+        <button class="btn-sim sim-heat" data-sim="heat" title="Test Blistering Heatwave & Heatstroke Danger Alert">
+          🔥 Simulate High Heat Alert
+        </button>
+      </div>
+    </section>
+
+    <!-- Error Banner -->
+    <div id="errorBanner" class="error-banner hidden"></div>
+
+    <!-- Severe Weather Emergency Alert Banners (Cyclone, Rain, Heat) -->
+    <section id="emergencyAlertBanner" class="alert-banner-container hidden"></section>
+
+    <!-- Hero Weather Section -->
+    <section class="hero-card">
+      <div class="hero-info-side">
+        <div class="hero-location-line">
+          <span id="heroLocationName" class="hero-location-name">New Delhi</span>
+          <span id="heroLocationCountry" class="hero-location-country">India</span>
+        </div>
+        <div class="hero-temp-line">
+          <span id="heroCurrentTemp" class="hero-current-temp">--°</span>
+          <div class="hero-cond-group">
+            <span id="heroWeatherDesc" class="hero-weather-desc">Loading weather...</span>
+            <div class="hero-meta-pills">
+              <span id="heroFeelsLike">Feels like --°</span>
+              <span id="heroHighLow">H: --° • L: --°</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual-side">
+        <div id="heroWeatherIcon" class="hero-icon-container">
+          <!-- Inline Weather SVG -->
+        </div>
+        <div id="lastUpdatedText" class="hero-last-updated">Updated just now</div>
+      </div>
+    </section>
+
+    <!-- 4 Core Highlight Cards (Rain, Sunny, Wind/Cyclone, Heat Index) -->
+    <h2 class="highlights-section-title">Atmospheric Indicators & Critical Watch</h2>
+    <section class="highlights-grid">
+
+      <!-- 1. RAIN WATCH CARD -->
+      <div class="glass-card">
+        <div>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span>🌧️ Rain Watch</span>
+            </div>
+            <span id="rainProbBadge" class="badge-uv uv-moderate">Precipitation</span>
+          </div>
+          <div id="rainProbabilityVal" class="card-main-stat">0%</div>
+          <div id="rainStatusText" class="card-subtext">No rain expected</div>
+          <div class="progress-bar-track">
+            <div id="rainMeterFill" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="card-detail-rows">
+          <div class="detail-row">
+            <span class="detail-label">Current Intensity:</span>
+            <span id="rainRateVal" class="detail-val">0.0 mm/h</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">24h Rainfall Total:</span>
+            <span id="rainAmountVal" class="detail-val">0.0 mm</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Relative Humidity:</span>
+            <span id="humidityVal" class="detail-val">--%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. SUNNY & UV CARD -->
+      <div class="glass-card">
+        <div>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span>☀️ Solar & Sunny</span>
+            </div>
+            <span id="uvRiskBadge" class="badge-uv uv-low">Low</span>
+          </div>
+          <div id="uvIndexVal" class="card-main-stat">0.0</div>
+          <div id="sunnyStatusText" class="card-subtext">Sunny Skies</div>
+        </div>
+
+        <div class="card-detail-rows">
+          <div class="detail-row">
+            <span class="detail-label">Cloud Cover:</span>
+            <span id="cloudCoverVal" class="detail-val">--%</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Sunrise:</span>
+            <span id="sunriseTimeVal" class="detail-val">--:--</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Sunset:</span>
+            <span id="sunsetTimeVal" class="detail-val">--:--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. WIND & CYCLONE WATCH CARD -->
+      <div class="glass-card">
+        <div>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span>🌀 Wind & Cyclone Watch</span>
+            </div>
+            <span id="surfacePressureVal" class="badge-uv uv-moderate">1013 hPa</span>
+          </div>
+          <div id="windSpeedVal" class="card-main-stat">-- km/h</div>
+          <div id="beaufortScaleVal" class="card-subtext">Gentle Breeze</div>
+
+          <!-- Interactive 360° Compass -->
+          <div class="compass-dial-wrap">
+            <div class="compass-dial">
+              <span class="cardinal-n">N</span>
+              <span class="cardinal-e">E</span>
+              <span class="cardinal-s">S</span>
+              <span class="cardinal-w">W</span>
+              <div id="compassNeedle" class="compass-needle">
+                <div class="needle-north"></div>
+                <div class="needle-south"></div>
+              </div>
+              <div class="compass-center-pin"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-detail-rows">
+          <div class="detail-row">
+            <span class="detail-label">Peak Wind Gusts:</span>
+            <span id="windGustsVal" class="detail-val">-- km/h</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Wind Direction:</span>
+            <span id="windDegreeVal" class="detail-val">--°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. THERMAL & HIGH HEAT INDEX CARD -->
+      <div class="glass-card">
+        <div>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span>🔥 Thermal & Heat Index</span>
+            </div>
+            <span id="heatRiskBadge" class="badge-heat heat-safe">Normal Comfort</span>
+          </div>
+          <div id="heatIndexVal" class="card-main-stat">--°</div>
+          <div id="heatStatusText" class="card-subtext">Optimal comfort for outdoor activity</div>
+        </div>
+
+        <div class="card-detail-rows">
+          <div class="detail-row">
+            <span class="detail-label">Maximum Today:</span>
+            <span id="maxTempTodayVal" class="detail-val">--°</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Heatstroke Hazard:</span>
+            <span class="detail-val" style="color: #34d399;">Low Risk</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Peak Sun Period:</span>
+            <span class="detail-val">11:00 AM - 3:30 PM</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Air Quality Index (AQI) Banner Card -->
+    <section class="glass-card" style="padding: 16px 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="font-size: 26px;">🍃</span>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Air Quality Index (AQI)</div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: #fff;">
+              <span id="aqiVal">--</span> <span id="aqiBadge" class="badge-aqi aqi-moderate" style="vertical-align: middle; margin-left: 8px;">Moderate</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 24px;">
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-dim); display: block;">PM2.5 (Fine Particles)</span>
+            <span id="pm25Val" style="font-size: 1rem; font-weight: 700; color: #fff;">-- µg/m³</span>
+          </div>
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-dim); display: block;">PM10 (Inhalable Dust)</span>
+            <span id="pm10Val" style="font-size: 1rem; font-weight: 700; color: #fff;">-- µg/m³</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 24-Hour Hourly Forecast Slider -->
+    <section class="forecast-section">
+      <h2 class="highlights-section-title">24-Hour Dynamic Hourly Trajectory</h2>
+      <div id="hourlyForecastList" class="hourly-scroll-container">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Dual Column Section: 7-Day Extended Forecast & Live Interactive Radar Map -->
+    <section class="extended-grid">
+      <!-- 7-Day Forecast -->
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span>📅 7-Day Extended Outlook</span>
+          </div>
+        </div>
+        <div id="dailyForecastList" class="daily-forecast-list">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Live Interactive Radar Map -->
+      <div class="glass-card map-card-wrapper">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span>📡 Realtime Precipitation Radar & Storm Tracking</span>
+          </div>
+        </div>
+        <div id="radarMap" class="radar-map-box"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Severe Weather Safety Protocol Modal -->
+  <div id="safetyModal" class="modal-overlay hidden">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title">🛡️ Severe Weather Emergency Guide</h3>
+        <button id="btnCloseSafety" class="btn-close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Cyclone Guide -->
+        <div class="guide-box cyclone">
+          <h4>🌀 Cyclone & Gale Wind Protocols</h4>
+          <ul>
+            <li>Remain strictly indoors in a reinforced central room away from windows and glass doors.</li>
+            <li>Anchor or store inside all loose patio furniture, signs, and roofing tiles.</li>
+            <li>Keep flashlights, first-aid kits, backup power banks, and battery radios fully charged.</li>
+            <li>Shut off main power circuit breakers and LPG gas cylinders in case of storm damage.</li>
+            <li>Never step outside when the calm "eye" of the storm passes over; violent reverse winds follow immediately.</li>
+          </ul>
+        </div>
+
+        <!-- Rain / Flood Guide -->
+        <div class="guide-box rain">
+          <h4>🌊 Heavy Rain & Flash Flood Protocols</h4>
+          <ul>
+            <li>Never attempt to drive or walk through flooded roadways or submerged underpasses.</li>
+            <li>Turn around, don't drown: 30 cm (12 in) of rushing floodwater can float and sweep away most vehicles.</li>
+            <li>Elevate electrical appliances and critical documents to higher floor levels.</li>
+            <li>Steer clear of damaged electrical transmission poles and downed cables to avoid electrocution.</li>
+            <li>Boil or purify all tap water before drinking following severe flooding.</li>
+          </ul>
+        </div>
+
+        <!-- High Heat Guide -->
+        <div class="guide-box heat">
+          <h4>🔥 Extreme Heatwave & Thermal Safety Protocols</h4>
+          <ul>
+            <li>Drink ample amounts of water and electrolyte-rich liquids continuously throughout the day.</li>
+            <li>Refrain from strenuous outdoor physical activities between 11:00 AM and 4:00 PM.</li>
+            <li>Dress in lightweight, light-colored, loose cotton garments with broad-brimmed hats and sunglasses.</li>
+            <li>Never leave infants, elderly, or pets inside unattended parked cars for any period.</li>
+            <li>Emergency Heatstroke Symptoms: high body temperature, red/dry skin, nausea, confusion, or fainting. Call emergency medical aid immediately.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- External Map Library (Leaflet) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Application Modules -->
+  <script src="js/config.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/weatherApi.js"></script>
+  <script src="js/alerts.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
